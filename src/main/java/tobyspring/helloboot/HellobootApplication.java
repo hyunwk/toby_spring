@@ -1,64 +1,40 @@
 package tobyspring.helloboot;
-
-//import org.springframework.boot.SpringApplication;
-//import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-import org.apache.catalina.startup.Tomcat;
 import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory;
 import org.springframework.boot.web.server.WebServer;
-import org.springframework.boot.web.servlet.ServletContextInitializer;
 import org.springframework.boot.web.servlet.server.ServletWebServerFactory;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
+import org.springframework.web.context.support.GenericWebApplicationContext;
+import org.springframework.web.servlet.DispatcherServlet;
 
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
-
-//@SpringBootApplication
+@Configuration
 public class HellobootApplication {
-
-	public static void main(String[] args) {
-//		SpringApplication.run(HellobootApplication.class, args);
-		ServletWebServerFactory serverFactory = new TomcatServletWebServerFactory();
-		WebServer webServer = serverFactory.getWebServer(new ServletContextInitializer() {
-			HelloController helloController = new HelloController();
-			@Override
-			public void onStartup(ServletContext servletContext) throws ServletException {
-				servletContext.addServlet("hello", new HttpServlet() {
-					@Override
-					protected void service(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-						if (req.getRequestURI().equals("/hello") && req.getMethod().equals(HttpMethod.GET.name())) {
-							String name = req.getParameter("name");
-
-							String ret = helloController.hello(name);
-
-
-							resp.setStatus(HttpStatus.OK.value());
-							resp.setHeader(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_PLAIN_VALUE);
-							resp.getWriter().println(ret);
-						} else if (req.getRequestURI().equals("/users")) {
-							//
-						} else {
-							resp.setStatus(HttpStatus.NOT_FOUND.value());
-
-						}
-
-					}
-				}).addMapping("/*");
-//				}).addMapping("/hello");
-			}
-		});
-		webServer.start();
-
-
-//		new Tomcat().start();
-//		System.out.println("con = ");
+	@Bean
+	public HelloController helloController(HelloService helloService) {
+		return new HelloController(helloService);
 	}
 
+	@Bean
+	public HelloService helloService() {
+		return new SimpleHelloService();
+	}
+	public static void main(String[] args) {
+		AnnotationConfigWebApplicationContext ac = new AnnotationConfigWebApplicationContext() {
+			@Override
+			protected void onRefresh() {
+				super.onRefresh();
+				ServletWebServerFactory serverFactory = new TomcatServletWebServerFactory();
+				WebServer webServer = serverFactory.getWebServer(servletContext -> {
+					servletContext.addServlet("dispatcherServlet",
+							new DispatcherServlet(this)
+					).addMapping("/*");
+				});
+				webServer.start();
+			}
+		};
+		ac.register(HellobootApplication.class);
+		ac.refresh(); // 가지고 있는 구성 정보를 이용해서 컨테이너를 초기화 하는 방법. bean 오브젝트를 만들어준다.
+	}
 }
